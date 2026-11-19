@@ -1,0 +1,64 @@
+{% extends "base.html" %}{% block content %}
+<div class="document-grid">
+  <section class="panel wide">
+    <header><h2>追溯减保更正 · 唯一净结算</h2><span>{{ settlements|length }} 笔更正</span></header>
+    <p class="note">裁决：应退保费与应追赔款<strong>独立建账、各自留痕</strong>；净额仅由二者相减产生一条结算指令，抵扣不回写原始义务，同一保单后续加保的缴费状态不受影响。</p>
+    <div class="scroll">
+      <table>
+        <thead><tr><th>更正号</th><th>保单</th><th>已付赔案</th><th>应退保费</th><th>应追赔款</th><th>抵扣余额</th><th>净额</th><th>支付方向</th><th>状态</th><th>版本</th><th>操作</th></tr></thead>
+        <tbody>
+        {% for s in settlements %}
+        <tr>
+          <td><a href="/api/m8_settlement/{{s.correction_id}}">{{s.correction_id}}</a></td>
+          <td>{{s.policy_id if s.policy_id is defined else '—'}}</td>
+          <td>{{s.claim_id if s.claim_id is defined else '—'}}</td>
+          <td class="num">{{s.refund_premium if s.refund_premium is defined else '—'}}</td>
+          <td class="num">{{s.recover_claim if s.recover_claim is defined else '—'}}</td>
+          <td class="num">{{s.offset_balance if s.offset_balance is defined else '—'}}</td>
+          <td class="num">{{s.net_amount if s.net_amount is defined else '—'}}</td>
+          <td><span class="dir {{s.direction}}">{{s.direction}}</span></td>
+          <td><span class="stamp {{'ok' if s.status=='已结清' else ''}}">{{s.status}}</span></td>
+          <td>v{{s.version}}</td>
+          <td>{% if s.status=='待结清' %}<button class="settle" data-cid="{{s.correction_id}}">结清</button>{% else %}已结清{% endif %}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="11">尚无更正。通过 <code>POST /api/m8_settlement</code> 提交（correction_id、policy_id、claim_id、refund_premium、recover_claim）。</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="panel">
+    <header><h2>义务账与守恒</h2></header>
+    <dl>
+      <dt>应退保费 REFUND</dt><dd>独立义务，来源为更正单</dd>
+      <dt>应追赔款 RECOVERY</dt><dd>独立义务，挂原赔案号，理赔可追</dd>
+      <dt>抵扣余额 NETTING</dt><dd>= min(应退, 应追)，仅结算层抵销</dd>
+      <dt>净额方向</dt><dd>应退&gt;应追→退款；应退&lt;应追→追偿；相等→两清无划款</dd>
+      <dt>守恒式</dt><dd>净付 − 净收 = 应退 − 应追</dd>
+      <dt>幂等</dt><dd>同号重试不重复退款/追偿；已结清锁定不可替换</dd>
+    </dl>
+  </section>
+
+  <section class="panel">
+    <header><h2>结案下载</h2></header>
+    <div class="actions">
+      <a class="button primary" href="/api/archive/{{run.run_id}}/export.csv">下载批次结案证据 CSV</a>
+    </div>
+    <p class="note">更正结算明细（含三条义务腿与净额方向）随结案 CSV 一并导出，明细缺失则守恒校验拒绝导出。</p>
+  </section>
+</div>
+<script>
+document.querySelectorAll('button.settle').forEach(btn=>btn.addEventListener('click',async()=>{
+  const fb=document.getElementById('feedback');
+  try{
+    const r=await fetch('/api/m8_settlement/'+btn.dataset.cid+'/settle',{method:'POST'});
+    const d=await r.json();
+    if(!r.ok)throw new Error(d.message);
+    fb.textContent='已结清 / '+d.correction_id+' / 方向 '+d.direction+' '+d.net_amount;
+    window.location.reload();
+  }catch(e){fb.textContent=e.message;}
+}));
+</script>
+{% endblock %}

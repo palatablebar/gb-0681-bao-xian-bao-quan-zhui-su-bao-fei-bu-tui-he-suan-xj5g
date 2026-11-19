@@ -10,6 +10,15 @@ def connection():
     db.execute('CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY,value TEXT NOT NULL)')
     return db
 
+def autocommit_connection():
+    """autocommit 连接（isolation_level=None）：事务边界完全由调用方显式
+    BEGIN/COMMIT/ROLLBACK 控制，避免 sqlite3 默认模式在 SELECT 后对首个
+    DML 静默 BEGIN，把本应独立提交的写操作并入下一次回滚。"""
+    path=Path(os.environ.get('DB_PATH','data/records.db'));path.parent.mkdir(parents=True,exist_ok=True)
+    db=sqlite3.connect(path,timeout=10,isolation_level=None);db.row_factory=sqlite3.Row
+    db.execute('PRAGMA journal_mode=WAL')
+    return db
+
 def save(run_id, body):
     with connection() as db:
         db.execute('INSERT OR IGNORE INTO runs(id,body) VALUES (?,?)',(run_id,json.dumps(body,ensure_ascii=False)))

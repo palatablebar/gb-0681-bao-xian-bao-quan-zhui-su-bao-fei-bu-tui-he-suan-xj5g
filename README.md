@@ -19,10 +19,13 @@ docker compose up --build -d
 - 保费重算：`/m5_calculate`、`/api/m5_calculate`
 - 补退对账：`/m6_reconcile`、`/api/m6_reconcile`
 - 结案归档：`/m7_archive`、`/api/m7_archive`
+- 更正净结算：`/m8_settlement`、`/api/m8_settlement`
 
 ## 核心规则
 
 按保全有效日拆分责任区间，撤销回滚指向原变更；实收补退按日精确分配尾差。完整数值、边界和异常定义见 `docs/DATA-DICTIONARY.md`。
+
+追溯减保的更正净结算（M8）：应退保费与应追赔款独立建账、各自留痕，抵扣仅发生在结算层且不回写原始义务，唯一净额 = 应退 − 应追 决定退款/追偿/两清方向；同号更正重试幂等，结清恰好一次，替换失败回滚保留旧版，明细丢失则守恒校验拒绝结案。详见 `docs/DEPTH.md`。
 
 ## 验证
 
